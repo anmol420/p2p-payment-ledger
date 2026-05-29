@@ -1,0 +1,20 @@
+services:
+   postgres:
+      image: postgres:18-alpine
+      container_name: ledger-database
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+        POSTGRES_DB: ledger
+      ports:
+        - "5433:5432"
+      volumes:
+        - ledger_pgdata:/var/lib/postgresql
+      healthcheck:    
+        test: ["CMD-SHELL", "pg_isready -U postgres -d ledger"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+volumes:
+  ledger_pgdata:
