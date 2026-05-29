@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/anmol420/p2p-payment-ledger/internal/db"
+	"github.com/anmol420/p2p-payment-ledger/internal/env"
 )
 
 func main() {
@@ -18,8 +20,16 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	slog.Info("server starting")
-	fmt.Println("Hello World")
+	DATABASE_ADDR := env.StringGetEnv("DATABASE_ADDR", slog.Default())
+
+	pool, err := db.DbConnect(ctx, DATABASE_ADDR)
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+	slog.Info("DB connection successful")
+
 	<-ctx.Done()
-	slog.Info("server shutting down")
+	slog.Info("Server shutting down")
 }
