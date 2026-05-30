@@ -30,6 +30,25 @@ func main() {
 	defer pool.Close()
 	slog.Info("DB connection successful")
 
+	// smoke test
+	repo := db.NewRepository(pool)
+	acc, err := repo.CreateAccount(ctx, db.CreateAccountParams{
+		OwnerName: "Anmol",
+		Balance: 2000,
+	})
+	if err != nil {
+		slog.Error("create account failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("account created", "id", acc.ID, "owner", acc.OwnerName, "balance", acc.Balance)
+	fetched, err := repo.GetAccount(ctx, acc.ID)
+	if err != nil {
+		slog.Error("get account failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("account fetched", "id", fetched.ID, "balance", fetched.Balance)
+	// test done
+	
 	<-ctx.Done()
 	slog.Info("Server shutting down")
 }
