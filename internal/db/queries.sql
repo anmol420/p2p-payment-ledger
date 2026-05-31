@@ -65,3 +65,6 @@ UPDATE transactions
 SET status = $2
 WHERE id = $1
 RETURNING *;
+
+-- name: AcquireAdvisoryLock :exec
+SELECT pg_advisory_xact_lock($1);

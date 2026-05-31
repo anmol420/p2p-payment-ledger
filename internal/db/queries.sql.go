@@ -11,6 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acquireAdvisoryLock = `-- name: AcquireAdvisoryLock :exec
+SELECT pg_advisory_xact_lock($1)
+`
+
+func (q *Queries) AcquireAdvisoryLock(ctx context.Context, pgAdvisoryXactLock int64) error {
+	_, err := q.db.Exec(ctx, acquireAdvisoryLock, pgAdvisoryXactLock)
+	return err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (
     owner_name,

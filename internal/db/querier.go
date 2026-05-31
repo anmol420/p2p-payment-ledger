@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	AcquireAdvisoryLock(ctx context.Context, pgAdvisoryXactLock int64) error
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	GetAccount(ctx context.Context, id pgtype.UUID) (Account, error)
