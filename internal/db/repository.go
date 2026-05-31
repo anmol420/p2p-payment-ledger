@@ -30,7 +30,7 @@ func (r *repository) ExecTx(ctx context.Context, fn func(Querier) error) error {
 		IsoLevel: pgx.Serializable,
 	})
 	if err != nil {
-		fmt.Errorf("Begin tx: %w", err)
+		return fmt.Errorf("Begin tx: %w", err)
 	}
 	qtx := r.Queries.WithTx(tx)
 	if err := fn(qtx); err != nil {
