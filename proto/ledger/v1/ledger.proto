@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package ledger.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/anmol420/p2p-payment-ledger/gen/ledger/v1;ledgerv1";
+
+service LedgerService {
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  rpc Transfer(TransferRequest) returns (TransferResponse);
+  rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
+}
+
+message Account {
+  string id = 1;
+  string owner_name = 2;
+  int64 balance = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message Transaction {
+  string id = 1;
+  string idempotency_key = 2;
+  string from_account_id = 3;
+  string to_account_id = 4;
+  int64 amount = 5;
+  string status = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateAccountRequest {
+  string owner_name = 1;
+  int64 initial_balance = 2;
+}
+
+message CreateAccountResponse {
+  Account account = 1;
+}
+
+message GetBalanceRequest {
+  string account_id = 1;
+}
+
+message GetBalanceResponse {
+  string account_id = 1;
+  int64 balance = 2;
+  string owner_name = 3;
+  google.protobuf.Timestamp as_of = 4;
+}
+
+message TransferRequest {
+  string from_account_id = 1;
+  string to_account_id = 2;
+  int64 amount = 3;
+  string idempotency_key = 4;
+}
+
+message TransferResponse {
+  Transaction transaction = 1;
+  int64 from_balance = 2;
+  int64 to_balance = 3;
+}
+
+message ListTransactionsRequest {
+  string account_id = 1;
+  int32 page_size = 2;
+  int32 page_offset = 3;
+}
+
+message ListTransactionsResponse {
+  repeated Transaction transactions = 1;
+  int32 total_count = 2;
+}

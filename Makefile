@@ -30,5 +30,17 @@ migrate-down:
 test:
 	@go test -race -v ./...
 
+.PHONY: proto
+proto:
+	@buf generate
+
+.PHONY: proto-lint
+proto-lint:
+	@buf lint
+
+.PHONY: proto-breaking
+proto-breaking:
+	@buf breaking --against '.git#branch=main'
+
 %:
 	@:
