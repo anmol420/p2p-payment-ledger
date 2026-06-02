@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ErrInsufficientFunds    = errors.New("Insufficient funds")
-	ErrAccountNotFound      = errors.New("Account not found")
-	ErrSameAccount          = errors.New("Cannot transfer to same account")
-	ErrInvalidAmount        = errors.New("Amount must be greater than zero")
-	ErrDuplicateIdempotency = errors.New("Duplicate idempotency key")
+	ErrInsufficientFunds    = errors.New("insufficient funds")
+	ErrAccountNotFound      = errors.New("account not found")
+	ErrSameAccount          = errors.New("cannot transfer to same account")
+	ErrInvalidAmount        = errors.New("amount must be greater than zero")
+	ErrDuplicateIdempotency = errors.New("duplicate idempotency key")
 )
 
 type TransferService struct {
@@ -48,14 +48,14 @@ func (s *TransferService) ExecuteTransfer(
 		return TransferResult{}, ErrSameAccount
 	}
 	if idempotencyKey == "" {
-		return TransferResult{}, fmt.Errorf("Idempotency key is required")
+		return TransferResult{}, fmt.Errorf("idempotency key is required")
 	}
 	existing, err := s.repo.GetTransactionByIdempotencyKey(ctx, idempotencyKey)
 	if err == nil {
 		return s.buildResultFromTransaction(ctx, existing)
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return TransferResult{}, fmt.Errorf("Check idempotency key: %w", err)
+		return TransferResult{}, fmt.Errorf("check idempotency key: %w", err)
 	}
 	var result TransferResult
 	err = s.repo.ExecTx(ctx, func(q db.Querier) error {
@@ -93,14 +93,14 @@ func executeTransferTx(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TransferResult{}, fmt.Errorf("%w: sender %s", ErrAccountNotFound, fromID)
 		}
-		return TransferResult{}, fmt.Errorf("Fetch sender: %w", err)
+		return TransferResult{}, fmt.Errorf("fetch sender: %w", err)
 	}
 	toAccount, err := q.GetAccountForUpdate(ctx, toID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TransferResult{}, fmt.Errorf("%w: receiver %s", ErrAccountNotFound, toID)
 		}
-		return TransferResult{}, fmt.Errorf("Fetch receiver: %w", err)
+		return TransferResult{}, fmt.Errorf("fetch receiver: %w", err)
 	}
 	if fromAccount.Balance < amount {
 		return TransferResult{}, ErrInsufficientFunds
@@ -110,14 +110,14 @@ func executeTransferTx(
 		Balance: fromAccount.Balance - amount,
 	})
 	if err != nil {
-		return TransferResult{}, fmt.Errorf("Debit sender: %w", err)
+		return TransferResult{}, fmt.Errorf("debit sender: %w", err)
 	}
 	updatedTo, err := q.UpdateAccountBalance(ctx, db.UpdateAccountBalanceParams{
 		ID:      toID,
 		Balance: toAccount.Balance + amount,
 	})
 	if err != nil {
-		return TransferResult{}, fmt.Errorf("Credit reciever: %w", err)
+		return TransferResult{}, fmt.Errorf("credit receiver: %w", err)
 	}
 	txn, err := q.CreateTransaction(ctx, db.CreateTransactionParams{
 		IdempotencyKey: idempotencyKey,
@@ -127,7 +127,7 @@ func executeTransferTx(
 		Status:         db.TransactionStatusCompleted,
 	})
 	if err != nil {
-		return TransferResult{}, fmt.Errorf("Record transaction: %w", err)
+		return TransferResult{}, fmt.Errorf("record transaction: %w", err)
 	}
 	return TransferResult{
 		Transaction: txn,
@@ -142,11 +142,11 @@ func (s *TransferService) buildResultFromTransaction(
 ) (TransferResult, error) {
 	fromAccount, err := s.repo.GetAccount(ctx, txn.FromAccountID)
 	if err != nil {
-		return TransferResult{}, fmt.Errorf("Fetch from account: %w", err)
+		return TransferResult{}, fmt.Errorf("fetch from account: %w", err)
 	}
 	toAccount, err := s.repo.GetAccount(ctx, txn.ToAccountID)
 	if err != nil {
-		return TransferResult{}, fmt.Errorf("Fetch to account: %w", err)
+		return TransferResult{}, fmt.Errorf("fetch to account: %w", err)
 	}
 	return TransferResult{
 		Transaction: txn,

@@ -10,16 +10,16 @@ import (
 func DbConnect(ctx context.Context, db string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(db)
 	if err != nil {
-		return nil, fmt.Errorf("Parse DB config: %w", err)
+		return nil, fmt.Errorf("parse DB config: %w", err)
 	}
 	config.MaxConns = 25
 	config.MinConns = 5
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		return nil, fmt.Errorf("Create pool: %w", err)
+		return nil, fmt.Errorf("create pool: %w", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
-		return nil, fmt.Errorf("Ping DB: %w", err)
+		return nil, fmt.Errorf("ping DB: %w", err)
 	}
 	return pool, nil
 }
