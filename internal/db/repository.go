@@ -1,3 +1,5 @@
+//go:generate mockgen -source=repository.go -destination=mocks/mock_repository.go -package=mocks
+
 package db
 
 import (
@@ -15,22 +17,22 @@ type Repository interface {
 
 type repository struct {
 	*Queries
-	pool		*pgxpool.Pool
+	pool *pgxpool.Pool
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		Queries: New(pool),
-		pool: pool,
+		pool:    pool,
 	}
 }
 
 func (r *repository) ExecTx(ctx context.Context, fn func(Querier) error) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.Serializable,
+		IsoLevel: pgx.ReadCommitted,
 	})
 	if err != nil {
-		return fmt.Errorf("Begin tx: %w", err)
+		return fmt.Errorf("begin tx: %w", err)
 	}
 	qtx := r.Queries.WithTx(tx)
 	if err := fn(qtx); err != nil {
