@@ -7,6 +7,7 @@ import (
 
 	pb "github.com/anmol420/p2p-payment-ledger/gen/ledger/v1"
 	"github.com/anmol420/p2p-payment-ledger/internal/db"
+	"github.com/anmol420/p2p-payment-ledger/internal/observability"
 	"github.com/anmol420/p2p-payment-ledger/internal/service"
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/grpc/codes"
@@ -46,6 +47,11 @@ func (s *Server) CreateAccount(
 	if req.InitialBalance < 0 {
 		return nil, status.Error(codes.InvalidArgument, "initial_balance cannot be negative")
 	}
+	logger := observability.LoggerFromContext(ctx)
+	logger.Info("create account",
+		"account", req.OwnerName,
+		"initial_balance", req.InitialBalance,
+	)
 	acc, err := s.repo.CreateAccount(ctx, db.CreateAccountParams{
 		OwnerName: req.OwnerName,
 		Balance:   req.InitialBalance,
@@ -70,6 +76,10 @@ func (s *Server) GetBalance(
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	logger := observability.LoggerFromContext(ctx)
+	logger.Info("get account balance",
+		"account_id", req.AccountId,
+	)
 	acc, err := s.repo.GetAccount(ctx, accountId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -113,6 +123,13 @@ func (s *Server) Transfer(
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	logger := observability.LoggerFromContext(ctx)
+	logger.Info("executing transfer",
+		"from_account_id", req.FromAccountId,
+		"to_account_id", req.ToAccountId,
+		"amount", req.Amount,
+		"idempotency_key", req.IdempotencyKey,
+	)
 	result, err := s.transferSvc.ExecuteTransfer(
 		ctx,
 		fromId,
@@ -152,6 +169,12 @@ func (s *Server) ListTransactions(
 	if offset < 0 {
 		offset = 0
 	}
+	logger := observability.LoggerFromContext(ctx)
+	logger.Info("list transactions",
+		"account_id", req.AccountId,
+		"page_size", pageSize,
+		"offset", offset,
+	)
 	txns, err := s.repo.ListTransactionsByAccount(ctx, db.ListTransactionsByAccountParams{
 		FromAccountID: accountId,
 		Limit:         pageSize,

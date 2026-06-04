@@ -12,14 +12,29 @@ import (
 	"github.com/anmol420/p2p-payment-ledger/internal/db"
 	"github.com/anmol420/p2p-payment-ledger/internal/env"
 	internalgrpc "github.com/anmol420/p2p-payment-ledger/internal/grpc"
+	"github.com/anmol420/p2p-payment-ledger/internal/observability"
 	"github.com/anmol420/p2p-payment-ledger/internal/service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
+func logLevelFromEnv() slog.Level {
+	LOG_LEVEL := env.StringGetEnv("LOG_LEVEL", slog.Default())
+	switch LOG_LEVEL {
+	case "debug", "DEBUG":
+		return slog.LevelDebug
+	case "warn", "WARN":
+		return slog.LevelWarn
+	case "error", "ERROR":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevelFromEnv(),
 	}))
 	slog.SetDefault(logger)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -35,7 +50,14 @@ func main() {
 	slog.Info("DB connection successful")
 	repo := db.NewRepository(pool)
 	transferSvc := service.NewTransferService(repo)
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(
+			observability.ChainUnaryInterceptor(
+				observability.UnaryRecoveryInterceptor(logger),
+				observability.UnaryLoggerInterceptor(logger),
+			),
+		),
+	)
 	ledgerService := internalgrpc.NewServer(transferSvc, repo, logger)
 	pb.RegisterLedgerServiceServer(grpcServer, ledgerService)
 	reflection.Register(grpcServer)

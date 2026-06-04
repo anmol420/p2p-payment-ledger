@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/anmol420/p2p-payment-ledger/internal/db"
+	"github.com/anmol420/p2p-payment-ledger/internal/observability"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -50,8 +51,13 @@ func (s *TransferService) ExecuteTransfer(
 	if idempotencyKey == "" {
 		return TransferResult{}, fmt.Errorf("idempotency key is required")
 	}
+	logger := observability.LoggerFromContext(ctx)
 	existing, err := s.repo.GetTransactionByIdempotencyKey(ctx, idempotencyKey)
 	if err == nil {
+		logger.Info("idempotent request — returning existing transaction",
+			"idempotency_key", idempotencyKey,
+			"existing_transaction_id", existing.ID,
+		)
 		return s.buildResultFromTransaction(ctx, existing)
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -102,6 +108,16 @@ func executeTransferTx(
 		}
 		return TransferResult{}, fmt.Errorf("fetch receiver: %w", err)
 	}
+	logger := observability.LoggerFromContext(ctx)
+	logger.Debug("advisory locks acquired — proceeding with transfer",
+		"from_account", fromAccount,
+		"to_account", toAccount,
+		"amount", amount,
+	)
+	logger.Debug("balance check passed",
+		"available", fromAccount.Balance,
+		"required", amount,
+	)
 	if fromAccount.Balance < amount {
 		return TransferResult{}, ErrInsufficientFunds
 	}
