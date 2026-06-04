@@ -10,10 +10,6 @@ build:
 run: build
 	./$(BINARY)
 
-.PHONY: proto
-proto:
-	@protoc generate
-
 .PHONY: migrate-create
 migrate-create:
 	@migrate create -seq -ext sql -dir $(MIGRATION_PATH) $(filter-out $@,$(MAKECMDGOALS))
