@@ -3,11 +3,10 @@ package env
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -25,16 +24,11 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	errL := godotenv.Load()
-	if errL != nil {
-		return nil, errL
-	}
-
 	cfg := &Config{}
 	var errs []string
 	var err error
 
-	cfg.DATABASE_URL = loadEnv("DATABASE_URL")
+	cfg.DATABASE_URL = os.Getenv("DATABASE_URL")
 	if cfg.DATABASE_URL == "" {
 		errs = append(errs, "DATABASE_URL must be set")
 	}
@@ -92,7 +86,7 @@ func (c *Config) MetricsAddr() string {
 }
 
 func getDefaultEnv(key string, defaultVal string) string {
-	val := loadEnv(key)
+	val := os.Getenv(key)
 	if val == "" {
 		val = defaultVal
 	}
@@ -100,7 +94,7 @@ func getDefaultEnv(key string, defaultVal string) string {
 }
 
 func getNumberEnv(key string, defaultVal int32) (int32, error) {
-	val := loadEnv(key)
+	val := os.Getenv(key)
 	if val == "" {
 		return defaultVal, nil
 	}
@@ -112,7 +106,7 @@ func getNumberEnv(key string, defaultVal int32) (int32, error) {
 }
 
 func getDurationEnv(key string, defaultVal time.Duration) (time.Duration, error) {
-	val := loadEnv(key)
+	val := os.Getenv(key)
 	if val == "" {
 		return defaultVal, nil
 	}
