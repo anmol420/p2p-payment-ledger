@@ -13,6 +13,7 @@ import (
 	"github.com/anmol420/p2p-payment-ledger/internal/observability"
 	"github.com/anmol420/p2p-payment-ledger/internal/service"
 	"github.com/anmol420/p2p-payment-ledger/internal/shutdown"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -56,17 +57,21 @@ func main() {
 		pool.Close()
 		return nil
 	})
+	metrics := observability.NewMetrics()
+	metricsShutdown := observability.StartMetricsServer(cfg.MetricsAddr(), logger)
+	shutdownMgr.Register("metrics_server", metricsShutdown)
 	repo := db.NewRepository(pool)
-	transferSvc := service.NewTransferService(repo)
+	transferSvc := service.NewTransferService(repo, metrics)
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(
 			observability.ChainUnaryInterceptor(
 				observability.UnaryRecoveryInterceptor(logger),
 				observability.UnaryLoggerInterceptor(logger),
+				observability.NewGRPCMetricsInterceptor(),
 			),
 		),
 	)
-	ledgerServer := internalgrpc.NewServer(transferSvc, repo, logger)
+	ledgerServer := internalgrpc.NewServer(transferSvc, repo, logger, metrics)
 	pb.RegisterLedgerServiceServer(grpcServer, ledgerServer)
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
@@ -87,6 +92,7 @@ func main() {
 			return ctx.Err()
 		}
 	})
+	grpcprom.Register(grpcServer)
 	lis, err := net.Listen("tcp", cfg.GRPCAddr())
 	if err != nil {
 		logger.Error("failed to listen", "error", err, "addr", cfg.GRPCAddr(), "port", cfg.GRPC_PORT)
