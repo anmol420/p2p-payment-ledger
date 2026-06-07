@@ -1,0 +1,69 @@
+{
+  "title": "P2P Ledger Service",
+  "uid": "ledger-main",
+  "timezone": "browser",
+  "refresh": "10s",
+  "panels": [
+    {
+      "title": "RPC Request Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{
+        "expr": "sum(rate(grpc_server_started_total[1m])) by (grpc_method)",
+        "legendFormat": "{{grpc_method}}"
+      }]
+    },
+    {
+      "title": "RPC Error Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{
+        "expr": "sum(rate(grpc_server_handled_total{grpc_code!=\"OK\"}[1m])) by (grpc_method, grpc_code)",
+        "legendFormat": "{{grpc_method}} / {{grpc_code}}"
+      }]
+    },
+    {
+      "title": "Transfer Latency p99 (ms)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{
+        "expr": "histogram_quantile(0.99, sum(rate(grpc_server_handling_seconds_bucket{grpc_method=\"Transfer\"}[5m])) by (le)) * 1000",
+        "legendFormat": "p99"
+      }, {
+        "expr": "histogram_quantile(0.95, sum(rate(grpc_server_handling_seconds_bucket{grpc_method=\"Transfer\"}[5m])) by (le)) * 1000",
+        "legendFormat": "p95"
+      }, {
+        "expr": "histogram_quantile(0.50, sum(rate(grpc_server_handling_seconds_bucket{grpc_method=\"Transfer\"}[5m])) by (le)) * 1000",
+        "legendFormat": "p50"
+      }]
+    },
+    {
+      "title": "Transfer Outcomes",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{
+        "expr": "sum(rate(ledger_transfer_total[1m])) by (status)",
+        "legendFormat": "{{status}}"
+      }]
+    },
+    {
+      "title": "Active Accounts",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16},
+      "targets": [{
+        "expr": "ledger_active_accounts_total",
+        "legendFormat": "accounts"
+      }]
+    },
+    {
+      "title": "Idempotent Requests Total",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 16},
+      "targets": [{
+        "expr": "ledger_idempotent_requests_total",
+        "legendFormat": "idempotent hits"
+      }]
+    }
+  ],
+  "schemaVersion": 39
+}
