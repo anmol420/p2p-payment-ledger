@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Build output
+bin/
+gen/
+
+# Local config
+.env
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Documentation
+*.md
+docs/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

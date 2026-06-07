@@ -38,5 +38,26 @@ proto-lint:
 proto-breaking:
 	@buf breaking --against '.git#branch=main'
 
+.PHONY: docker-build
+docker-build:
+	docker build -t ledger:local .
+
+.PHONY: docker-up
+docker-up:
+	docker compose up --build -d
+
+.PHONY: docker-down
+docker-down:
+	docker compose down
+
+.PHONY: docker-logs
+docker-logs:
+	docker compose logs -f server
+
+.PHONY: docker-clean
+docker-clean:
+	docker compose down -v
+	docker rmi ledger:local 2>/dev/null || true
+
 %:
 	@:
