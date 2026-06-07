@@ -53,6 +53,36 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    container_name: ledger-prometheus
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ledger_promdata:/prometheus
+    ports:
+      - "9091:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    depends_on:
+      - server
+
+  grafana:
+    image: grafana/grafana:11.6.15
+    container_name: ledger-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ledger_grafanadata:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
 volumes:
   ledger_data:
     driver: local
+  ledger_promdata:
+  ledger_grafanadata:
