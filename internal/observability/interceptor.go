@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -83,4 +84,13 @@ func ChainUnaryInterceptor(interceptors ...grpc.UnaryServerInterceptor) grpc.Una
 		}
 		return chained(ctx, req)
 	}
+}
+
+func NewGRPCMetricsInterceptor() grpc.UnaryServerInterceptor {
+	grpcprom.EnableHandlingTimeHistogram(
+		grpcprom.WithHistogramBuckets([]float64{
+			.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5,
+		}),
+	)
+	return grpcprom.UnaryServerInterceptor
 }

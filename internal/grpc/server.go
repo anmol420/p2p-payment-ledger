@@ -20,17 +20,20 @@ type Server struct {
 	transferSvc *service.TransferService
 	repo        db.Repository
 	logger      *slog.Logger
+	metrics     *observability.Metrics
 }
 
 func NewServer(
 	transferSvc *service.TransferService,
 	repo db.Repository,
 	logger *slog.Logger,
+	metrics *observability.Metrics,
 ) *Server {
 	return &Server{
 		transferSvc: transferSvc,
 		repo:        repo,
 		logger:      logger,
+		metrics:     metrics,
 	}
 }
 
@@ -60,6 +63,7 @@ func (s *Server) CreateAccount(
 		s.logger.Error("create account failed", "error", err)
 		return nil, status.Error(codes.Internal, "failed to create account")
 	}
+	s.metrics.ActiveAccountsTotal.Inc()
 	return &pb.CreateAccountResponse{
 		Account: accountToProto(acc),
 	}, nil

@@ -20,12 +20,14 @@ var (
 )
 
 type TransferService struct {
-	repo db.Repository
+	repo    db.Repository
+	metrics *observability.Metrics
 }
 
-func NewTransferService(repo db.Repository) *TransferService {
+func NewTransferService(repo db.Repository, metrics *observability.Metrics) *TransferService {
 	return &TransferService{
-		repo: repo,
+		repo:    repo,
+		metrics: metrics,
 	}
 }
 
@@ -43,12 +45,15 @@ func (s *TransferService) ExecuteTransfer(
 	idempotencyKey string,
 ) (TransferResult, error) {
 	if amount <= 0 {
+		s.metrics.TransferTotal.WithLabelValues("invalid_input").Inc()
 		return TransferResult{}, ErrInvalidAmount
 	}
 	if fromID == toID {
+		s.metrics.TransferTotal.WithLabelValues("invalid_input").Inc()
 		return TransferResult{}, ErrSameAccount
 	}
 	if idempotencyKey == "" {
+		s.metrics.TransferTotal.WithLabelValues("invalid_input").Inc()
 		return TransferResult{}, fmt.Errorf("idempotency key is required")
 	}
 	logger := observability.LoggerFromContext(ctx)
@@ -58,9 +63,12 @@ func (s *TransferService) ExecuteTransfer(
 			"idempotency_key", idempotencyKey,
 			"existing_transaction_id", existing.ID,
 		)
+		s.metrics.IdempotentRequestTotal.Inc()
+		s.metrics.TransferTotal.WithLabelValues("success").Inc()
 		return s.buildResultFromTransaction(ctx, existing)
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
+		s.metrics.TransferTotal.WithLabelValues("internal_error").Inc()
 		return TransferResult{}, fmt.Errorf("check idempotency key: %w", err)
 	}
 	var result TransferResult
@@ -70,8 +78,18 @@ func (s *TransferService) ExecuteTransfer(
 		return txErr
 	})
 	if err != nil {
+		switch {
+		case errors.Is(err, ErrInsufficientFunds):
+			s.metrics.TransferTotal.WithLabelValues("insufficient_funds").Inc()
+		case errors.Is(err, ErrAccountNotFound):
+			s.metrics.TransferTotal.WithLabelValues("account_not_found").Inc()
+		default:
+			s.metrics.TransferTotal.WithLabelValues("internal_error").Inc()
+		}
 		return TransferResult{}, err
 	}
+	s.metrics.TransferTotal.WithLabelValues("success").Inc()
+	s.metrics.TransferAmount.Observe(float64(amount))
 	return result, nil
 }
 
