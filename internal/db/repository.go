@@ -29,7 +29,7 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 
 func (r *repository) ExecTx(ctx context.Context, fn func(Querier) error) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.ReadCommitted,
+		IsoLevel: pgx.Serializable,
 	})
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
