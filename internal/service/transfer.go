@@ -163,6 +163,28 @@ func executeTransferTx(
 	if err != nil {
 		return TransferResult{}, fmt.Errorf("record transaction: %w", err)
 	}
+	_, err = q.CreateAuditEntry(ctx, db.CreateAuditEntryParams{
+		AccountID:     fromID,
+		TransactionID: txn.ID,
+		EventType:     db.AuditEventTypeDebit,
+		Amount:        amount,
+		BalanceBefore: fromAccount.Balance,
+		BalanceAfter:  updatedFrom.Balance,
+	})
+	if err != nil {
+		return TransferResult{}, fmt.Errorf("write debit audit entry: %w", err)
+	}
+	_, err = q.CreateAuditEntry(ctx, db.CreateAuditEntryParams{
+		AccountID:     toID,
+		TransactionID: txn.ID,
+		EventType:     db.AuditEventTypeCredit,
+		Amount:        amount,
+		BalanceBefore: toAccount.Balance,
+		BalanceAfter:  updatedTo.Balance,
+	})
+	if err != nil {
+		return TransferResult{}, fmt.Errorf("write credit audit entry: %w", err)
+	}
 	return TransferResult{
 		Transaction: txn,
 		FromAccount: updatedFrom,

@@ -11,6 +11,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuditEventType string
+
+const (
+	AuditEventTypeDebit  AuditEventType = "debit"
+	AuditEventTypeCredit AuditEventType = "credit"
+)
+
+func (e *AuditEventType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AuditEventType(s)
+	case string:
+		*e = AuditEventType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AuditEventType: %T", src)
+	}
+	return nil
+}
+
+type NullAuditEventType struct {
+	AuditEventType AuditEventType `json:"audit_event_type"`
+	Valid          bool           `json:"valid"` // Valid is true if AuditEventType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAuditEventType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AuditEventType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AuditEventType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAuditEventType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AuditEventType), nil
+}
+
 type TransactionStatus string
 
 const (
@@ -60,6 +102,17 @@ type Account struct {
 	Balance   int64              `json:"balance"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AuditLog struct {
+	ID            pgtype.UUID        `json:"id"`
+	AccountID     pgtype.UUID        `json:"account_id"`
+	TransactionID pgtype.UUID        `json:"transaction_id"`
+	EventType     AuditEventType     `json:"event_type"`
+	Amount        int64              `json:"amount"`
+	BalanceBefore int64              `json:"balance_before"`
+	BalanceAfter  int64              `json:"balance_after"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type Transaction struct {

@@ -68,3 +68,36 @@ RETURNING *;
 
 -- name: AcquireAdvisoryLock :exec
 SELECT pg_advisory_xact_lock($1);
+
+-- name: CreateAuditEntry :one
+INSERT INTO audit_log (
+    account_id,
+    transaction_id,
+    event_type,
+    amount,
+    balance_before,
+    balance_after
+) VALUES (
+          $1, $2, $3, $4, $5, $6
+)
+RETURNING *;
+
+-- name: ListAuditLogByAccount :many
+SELECT * FROM audit_log
+WHERE account_id = @account_id
+  AND (
+    @use_cursor::boolean = false
+    OR (created_at, id) < (@cursor_time::timestamptz, @cursor_id::uuid)
+    )
+ORDER BY created_at DESC, id DESC
+    LIMIT @limit_count;
+
+-- name: ListTransactionsByAccountCursor :many
+SELECT * FROM transactions
+WHERE (from_account_id = @account_id OR to_account_id = @account_id)
+  AND (
+    @use_cursor::boolean = false
+    OR (created_at, id) < (@cursor_time::timestamptz, @cursor_id::uuid)
+    )
+ORDER BY created_at DESC, id DESC
+    LIMIT @limit_count;

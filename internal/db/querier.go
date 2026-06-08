@@ -13,13 +13,16 @@ import (
 type Querier interface {
 	AcquireAdvisoryLock(ctx context.Context, pgAdvisoryXactLock int64) error
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateAuditEntry(ctx context.Context, arg CreateAuditEntryParams) (AuditLog, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	GetAccount(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetAccountForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetTransaction(ctx context.Context, id pgtype.UUID) (Transaction, error)
 	GetTransactionByIdempotencyKey(ctx context.Context, idempotencyKey string) (Transaction, error)
 	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
+	ListAuditLogByAccount(ctx context.Context, arg ListAuditLogByAccountParams) ([]AuditLog, error)
 	ListTransactionsByAccount(ctx context.Context, arg ListTransactionsByAccountParams) ([]Transaction, error)
+	ListTransactionsByAccountCursor(ctx context.Context, arg ListTransactionsByAccountCursorParams) ([]Transaction, error)
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
 	UpdateTransactionStatus(ctx context.Context, arg UpdateTransactionStatusParams) (Transaction, error)
 }

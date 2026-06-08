@@ -61,6 +61,7 @@ func main() {
 	metricsShutdown := observability.StartMetricsServer(cfg.MetricsAddr(), logger)
 	shutdownMgr.Register("metrics_server", metricsShutdown)
 	repo := db.NewRepository(pool)
+	txnSvc := service.NewTransactionService(repo)
 	transferSvc := service.NewTransferService(repo, metrics)
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(
@@ -71,7 +72,7 @@ func main() {
 			),
 		),
 	)
-	ledgerServer := internalgrpc.NewServer(transferSvc, repo, logger, metrics)
+	ledgerServer := internalgrpc.NewServer(transferSvc, txnSvc, repo, logger, metrics)
 	pb.RegisterLedgerServiceServer(grpcServer, ledgerServer)
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 
 	pb "github.com/anmol420/p2p-payment-ledger/gen/ledger/v1"
 	"github.com/anmol420/p2p-payment-ledger/internal/db"
@@ -18,6 +19,7 @@ import (
 type Server struct {
 	pb.UnimplementedLedgerServiceServer
 	transferSvc *service.TransferService
+	txnSvc      *service.TransactionService
 	repo        db.Repository
 	logger      *slog.Logger
 	metrics     *observability.Metrics
@@ -25,12 +27,14 @@ type Server struct {
 
 func NewServer(
 	transferSvc *service.TransferService,
+	txnSvc *service.TransactionService,
 	repo db.Repository,
 	logger *slog.Logger,
 	metrics *observability.Metrics,
 ) *Server {
 	return &Server{
 		transferSvc: transferSvc,
+		txnSvc:      txnSvc,
 		repo:        repo,
 		logger:      logger,
 		metrics:     metrics,
@@ -155,45 +159,58 @@ func (s *Server) ListTransactions(
 	ctx context.Context,
 	req *pb.ListTransactionsRequest,
 ) (*pb.ListTransactionsResponse, error) {
+	logger := observability.LoggerFromContext(ctx)
 	if req.AccountId == "" {
 		return nil, status.Error(codes.InvalidArgument, "account_id is required")
 	}
-	accountId, err := parseUUID(req.AccountId, "account_id")
+	accountID, err := parseUUID(req.AccountId, "account_id")
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	pageSize := req.PageSize
-	if pageSize == 0 {
-		pageSize = 10
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	offset := req.PageOffset
-	if offset < 0 {
-		offset = 0
-	}
-	logger := observability.LoggerFromContext(ctx)
-	logger.Info("list transactions",
-		"account_id", req.AccountId,
-		"page_size", pageSize,
-		"offset", offset,
-	)
-	txns, err := s.repo.ListTransactionsByAccount(ctx, db.ListTransactionsByAccountParams{
-		FromAccountID: accountId,
-		Limit:         pageSize,
-		Offset:        offset,
-	})
+	result, err := s.txnSvc.ListTransactions(ctx, accountID, req.PageSize, req.PageToken)
 	if err != nil {
-		s.logger.Error("list transactions failed", "account_id", accountId, "error", err)
-		return nil, status.Error(codes.Internal, "list transactions failed")
+		if strings.Contains(err.Error(), "invalid page_token") {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		logger.Error("list transactions failed", "error", err)
+		return nil, status.Error(codes.Internal, "failed to list transactions")
 	}
-	protoTxns := make([]*pb.Transaction, len(txns))
-	for i, txn := range txns {
-		protoTxns[i] = transactionToProto(txn)
+	protoTxns := make([]*pb.Transaction, len(result.Transactions))
+	for i, t := range result.Transactions {
+		protoTxns[i] = transactionToProto(t)
 	}
 	return &pb.ListTransactionsResponse{
-		Transactions: protoTxns,
-		TotalCount:   int32(len(protoTxns)),
+		Transactions:  protoTxns,
+		NextPageToken: result.NextCursor,
+	}, nil
+}
+func (s *Server) GetAuditLog(
+	ctx context.Context,
+	req *pb.GetAuditLogRequest,
+) (*pb.GetAuditLogResponse, error) {
+	logger := observability.LoggerFromContext(ctx)
+	if req.AccountId == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_id is required")
+	}
+	accountID, err := parseUUID(req.AccountId, "account_id")
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	result, err := s.txnSvc.ListAuditLog(ctx, accountID, req.PageSize, req.PageToken)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid page_token") {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		logger.Error("get audit log failed", "error", err)
+		return nil, status.Error(codes.Internal, "failed to get audit log")
+	}
+	protoEntries := make([]*pb.AuditEntry, len(result.AuditLogs))
+	for i, e := range result.AuditLogs {
+		protoEntries[i] = auditEntryToProto(e)
+	}
+
+	return &pb.GetAuditLogResponse{
+		Entries:       protoEntries,
+		NextPageToken: result.NextCursor,
 	}, nil
 }

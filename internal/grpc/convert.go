@@ -38,3 +38,16 @@ func transactionToProto(t db.Transaction) *pb.Transaction {
 		CreatedAt:      timestamppb.New(t.CreatedAt.Time),
 	}
 }
+
+func auditEntryToProto(e db.AuditLog) *pb.AuditEntry {
+	return &pb.AuditEntry{
+		Id:            e.ID.String(),
+		AccountId:     e.AccountID.String(),
+		TransactionId: e.TransactionID.String(),
+		EventType:     string(e.EventType),
+		Amount:        e.Amount,
+		BalanceBefore: e.BalanceBefore,
+		BalanceAfter:  e.BalanceAfter,
+		CreatedAt:     timestamppb.New(e.CreatedAt.Time),
+	}
+}

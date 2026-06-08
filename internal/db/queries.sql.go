@@ -48,6 +48,52 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 	return i, err
 }
 
+const createAuditEntry = `-- name: CreateAuditEntry :one
+INSERT INTO audit_log (
+    account_id,
+    transaction_id,
+    event_type,
+    amount,
+    balance_before,
+    balance_after
+) VALUES (
+          $1, $2, $3, $4, $5, $6
+)
+RETURNING id, account_id, transaction_id, event_type, amount, balance_before, balance_after, created_at
+`
+
+type CreateAuditEntryParams struct {
+	AccountID     pgtype.UUID    `json:"account_id"`
+	TransactionID pgtype.UUID    `json:"transaction_id"`
+	EventType     AuditEventType `json:"event_type"`
+	Amount        int64          `json:"amount"`
+	BalanceBefore int64          `json:"balance_before"`
+	BalanceAfter  int64          `json:"balance_after"`
+}
+
+func (q *Queries) CreateAuditEntry(ctx context.Context, arg CreateAuditEntryParams) (AuditLog, error) {
+	row := q.db.QueryRow(ctx, createAuditEntry,
+		arg.AccountID,
+		arg.TransactionID,
+		arg.EventType,
+		arg.Amount,
+		arg.BalanceBefore,
+		arg.BalanceAfter,
+	)
+	var i AuditLog
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.TransactionID,
+		&i.EventType,
+		&i.Amount,
+		&i.BalanceBefore,
+		&i.BalanceAfter,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (
     idempotency_key,
@@ -208,6 +254,60 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]A
 	return items, nil
 }
 
+const listAuditLogByAccount = `-- name: ListAuditLogByAccount :many
+SELECT id, account_id, transaction_id, event_type, amount, balance_before, balance_after, created_at FROM audit_log
+WHERE account_id = $1
+  AND (
+    $2::boolean = false
+    OR (created_at, id) < ($3::timestamptz, $4::uuid)
+    )
+ORDER BY created_at DESC, id DESC
+    LIMIT $5
+`
+
+type ListAuditLogByAccountParams struct {
+	AccountID  pgtype.UUID        `json:"account_id"`
+	UseCursor  bool               `json:"use_cursor"`
+	CursorTime pgtype.Timestamptz `json:"cursor_time"`
+	CursorID   pgtype.UUID        `json:"cursor_id"`
+	LimitCount int32              `json:"limit_count"`
+}
+
+func (q *Queries) ListAuditLogByAccount(ctx context.Context, arg ListAuditLogByAccountParams) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listAuditLogByAccount,
+		arg.AccountID,
+		arg.UseCursor,
+		arg.CursorTime,
+		arg.CursorID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.TransactionID,
+			&i.EventType,
+			&i.Amount,
+			&i.BalanceBefore,
+			&i.BalanceAfter,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransactionsByAccount = `-- name: ListTransactionsByAccount :many
 SELECT id, idempotency_key, from_account_id, to_account_id, amount, status, created_at FROM transactions
 WHERE from_account_id = $1
@@ -224,6 +324,59 @@ type ListTransactionsByAccountParams struct {
 
 func (q *Queries) ListTransactionsByAccount(ctx context.Context, arg ListTransactionsByAccountParams) ([]Transaction, error) {
 	rows, err := q.db.Query(ctx, listTransactionsByAccount, arg.FromAccountID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Transaction{}
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.IdempotencyKey,
+			&i.FromAccountID,
+			&i.ToAccountID,
+			&i.Amount,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTransactionsByAccountCursor = `-- name: ListTransactionsByAccountCursor :many
+SELECT id, idempotency_key, from_account_id, to_account_id, amount, status, created_at FROM transactions
+WHERE (from_account_id = $1 OR to_account_id = $1)
+  AND (
+    $2::boolean = false
+    OR (created_at, id) < ($3::timestamptz, $4::uuid)
+    )
+ORDER BY created_at DESC, id DESC
+    LIMIT $5
+`
+
+type ListTransactionsByAccountCursorParams struct {
+	AccountID  pgtype.UUID        `json:"account_id"`
+	UseCursor  bool               `json:"use_cursor"`
+	CursorTime pgtype.Timestamptz `json:"cursor_time"`
+	CursorID   pgtype.UUID        `json:"cursor_id"`
+	LimitCount int32              `json:"limit_count"`
+}
+
+func (q *Queries) ListTransactionsByAccountCursor(ctx context.Context, arg ListTransactionsByAccountCursorParams) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, listTransactionsByAccountCursor,
+		arg.AccountID,
+		arg.UseCursor,
+		arg.CursorTime,
+		arg.CursorID,
+		arg.LimitCount,
+	)
 	if err != nil {
 		return nil, err
 	}
