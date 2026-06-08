@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/anmol420/p2p-payment-ledger/internal/db"
+	"github.com/anmol420/p2p-payment-ledger/internal/observability"
 	"github.com/anmol420/p2p-payment-ledger/internal/service"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -66,7 +67,8 @@ func TestExecuteTransfer_Integration(t *testing.T) {
 	pool := startPostgres(t)
 	ctx := context.Background()
 	repo := db.NewRepository(pool)
-	svc := service.NewTransferService(repo)
+	metrics := observability.NewMetrics()
+	svc := service.NewTransferService(repo, metrics)
 	anmol, err := repo.CreateAccount(ctx, db.CreateAccountParams{
 		OwnerName: "Anmol",
 		Balance:   100000,
@@ -135,7 +137,8 @@ func TestExecuteTransfer_Concurrent(t *testing.T) {
 	pool := startPostgres(t)
 	ctx := context.Background()
 	repo := db.NewRepository(pool)
-	svc := service.NewTransferService(repo)
+	metrics := observability.NewMetrics()
+	svc := service.NewTransferService(repo, metrics)
 	const (
 		numTransfers   = 100
 		amountEach     = int64(100)

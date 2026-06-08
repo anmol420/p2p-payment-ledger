@@ -7,6 +7,7 @@ import (
 
 	"github.com/anmol420/p2p-payment-ledger/internal/db"
 	"github.com/anmol420/p2p-payment-ledger/internal/db/mocks"
+	"github.com/anmol420/p2p-payment-ledger/internal/observability"
 	"github.com/anmol420/p2p-payment-ledger/internal/service"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -226,7 +227,8 @@ func TestExecuteTransfer(t *testing.T) {
 			ctrl, mockRepo := setupMockRepo(t)
 			defer ctrl.Finish()
 			tc.setupMocks(mockRepo)
-			svc := service.NewTransferService(mockRepo)
+			metrics := observability.NewMetrics()
+			svc := service.NewTransferService(mockRepo, metrics)
 			result, err := svc.ExecuteTransfer(ctx, tc.fromID, tc.toID, tc.amount, tc.idempotencyKey)
 			if tc.wantErr != nil {
 				require.Error(t, err)
